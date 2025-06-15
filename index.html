@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Zapaterías</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+    }
+
+    #downloadLog {
+        display: block;
+        margin: 1rem auto;
+    }
+
+    .centered {
+        display: flex;
+        justify-content: center;
+        margin-top: 1rem;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    form {
+      margin-bottom: 1rem;
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    input[type="text"], input[type="number"] {
+      padding: 0.5rem;
+      font-size: 1rem;
+    }
+
+    button {
+      padding: 0.6rem 1.2rem;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2rem;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+      text-align: left;
+    }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    .source1 { background-color: #e3f2fd; }
+    .source2 { background-color: #e8f5e9; }
+    .source3 { background-color: #fff3e0; }
+  </style>
+</head>
+<body>
+
+  <h1>Catálogo de Zapaterías</h1>
+
+  <form id="filterForm">
+    <input type="text" name="brand" placeholder="Marca">
+    <input type="text" name="model" placeholder="Modelo">
+    <button type="submit">Buscar</button>
+  </form>
+
+
+  <div class="centered">
+    <button type="button" id="downloadLog" style="background-color: green;">Descargar Historial</button>
+  </div>
+
+
+  <table>
+    <thead>
+      <tr>
+        <th>Marca</th>
+        <th>Modelo</th>
+        <th>Talla</th>
+        <th>Precio</th>
+        <th>Zapatería</th>
+      </tr>
+    </thead>
+    <tbody id="resultTable">
+      <!-- Aquí se agregan los resultados -->
+    </tbody>
+  </table>
+
+  <script>
+    const form = document.getElementById("filterForm");
+    const tableBody = document.getElementById("resultTable");
+
+    const zapaterias = [
+      { id: 1, url: "http://localhost:8080/api/zapatos/zapateria1", className: "source1" },
+      { id: 2, url: "http://localhost:8080/api/zapatos/zapateria2", className: "source2" },
+      { id: 3, url: "http://localhost:8080/api/zapatos/zapateria3", className: "source3" },
+    ];
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      tableBody.innerHTML = ""; // limpia resultados
+
+      const formData = new FormData(form);
+      const queryParams = new URLSearchParams();
+      for (const [key, value] of formData.entries()) {
+        if (value) queryParams.append(key, value);
+      }
+
+      for (const z of zapaterias) {
+        try {
+          const res = await fetch(`${z.url}?${queryParams.toString()}`);
+          const data = await res.json();
+
+          data.forEach(shoe => {
+            const tr = document.createElement("tr");
+            tr.className = z.className;
+            tr.innerHTML = `
+              <td>${shoe.brand}</td>
+              <td>${shoe.model}</td>
+              <td>${shoe.size ?? "-"}</td>
+              <td>$${shoe.quantity?.toFixed(2) ?? "-"}</td>
+              <td>Zapatería ${z.id}</td>
+            `;
+            tableBody.appendChild(tr);
+          });
+        } catch (err) {
+          console.error(`Error cargando datos de zapatería ${z.id}`, err);
+        }
+      }
+    });
+
+
+    // Historial
+    
+    const searchHistory = [];
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  tableBody.innerHTML = "";
+
+  const formData = new FormData(form);
+  const queryParams = new URLSearchParams();
+  let logEntry = {};
+
+  for (const [key, value] of formData.entries()) {
+    if (value) {
+      queryParams.append(key, value);
+      logEntry[key] = value;
+    }
+  }
+
+  const timestamp = new Date().toLocaleString();
+  searchHistory.push({ timestamp, filtros: { ...logEntry } });
+
+  for (const z of zapaterias) {
+    try {
+      const res = await fetch(`${z.url}?${queryParams.toString()}`);
+      const data = await res.json();
+
+      data.forEach(shoe => {
+        const tr = document.createElement("tr");
+        tr.className = z.className;
+        tr.innerHTML = `
+          <td>${shoe.brand}</td>
+          <td>${shoe.model}</td>
+          <td>${shoe.size ?? "-"}</td>
+          <td>$${shoe.quantity?.toFixed(2) ?? "-"}</td>
+          <td>Zapatería ${z.id}</td>
+        `;
+        tableBody.appendChild(tr);
+      });
+    } catch (err) {
+      console.error(`Error cargando datos de zapatería ${z.id}`, err);
+    }
+  }
+});
+
+
+// descargar el historial
+
+document.getElementById("downloadLog").addEventListener("click", () => {
+  if (searchHistory.length === 0) {
+    alert("No hay búsquedas guardadas aún.");
+    return;
+  }
+
+  let content = "Historial de búsquedas:\n\n";
+  searchHistory.forEach((entry, index) => {
+    content += `Búsqueda #${index + 1} [${entry.timestamp}]:\n`;
+    Object.entries(entry.filtros).forEach(([key, value]) => {
+      content += `  - ${key}: ${value}\n`;
+    });
+    content += "\n";
+  });
+
+  const blob = new Blob([content], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "historial_busquedas.txt";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
+
+  </script>
+
+</body>
+</html>
