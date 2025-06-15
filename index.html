@@ -100,122 +100,85 @@
   </table>
 
   <script>
-    const form = document.getElementById("filterForm");
-    const tableBody = document.getElementById("resultTable");
+  const form = document.getElementById("filterForm");
+  const tableBody = document.getElementById("resultTable");
 
-    const zapaterias = [
-      { id: 1, url: "http://localhost:8080/api/zapatos/zapateria1", className: "source1" },
-      { id: 2, url: "http://localhost:8080/api/zapatos/zapateria2", className: "source2" },
-      { id: 3, url: "http://localhost:8080/api/zapatos/zapateria3", className: "source3" },
-    ];
+  const zapaterias = [
+    { id: 1, url: "http://localhost:8080/api/zapatos/zapateria1", className: "source1" },
+    { id: 2, url: "http://localhost:8080/api/zapatos/zapateria2", className: "source2" },
+    { id: 3, url: "http://localhost:8080/api/zapatos/zapateria3", className: "source3" },
+  ];
 
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      tableBody.innerHTML = ""; // limpia resultados
+  const searchHistory = [];
 
-      const formData = new FormData(form);
-      const queryParams = new URLSearchParams();
-      for (const [key, value] of formData.entries()) {
-        if (value) queryParams.append(key, value);
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    tableBody.innerHTML = "";
+
+    const formData = new FormData(form);
+    const queryParams = new URLSearchParams();
+    let logEntry = {};
+
+    for (const [key, value] of formData.entries()) {
+      if (value) {
+        queryParams.append(key, value);
+        logEntry[key] = value;
       }
+    }
 
-      for (const z of zapaterias) {
-        try {
-          const res = await fetch(`${z.url}?${queryParams.toString()}`);
-          const data = await res.json();
+    // Guarda búsqueda
+    const timestamp = new Date().toLocaleString();
+    searchHistory.push({ timestamp, filtros: { ...logEntry } });
 
-          data.forEach(shoe => {
-            const tr = document.createElement("tr");
-            tr.className = z.className;
-            tr.innerHTML = `
-              <td>${shoe.brand}</td>
-              <td>${shoe.model}</td>
-              <td>${shoe.size ?? "-"}</td>
-              <td>$${shoe.quantity?.toFixed(2) ?? "-"}</td>
-              <td>Zapatería ${z.id}</td>
-            `;
-            tableBody.appendChild(tr);
-          });
-        } catch (err) {
-          console.error(`Error cargando datos de zapatería ${z.id}`, err);
-        }
+    // Fetch a las zapaterías
+    for (const z of zapaterias) {
+      try {
+        const res = await fetch(`${z.url}?${queryParams.toString()}`);
+        const data = await res.json();
+
+        data.forEach(shoe => {
+          const tr = document.createElement("tr");
+          tr.className = z.className;
+          tr.innerHTML = `
+            <td>${shoe.brand}</td>
+            <td>${shoe.model}</td>
+            <td>${shoe.size ?? "-"}</td>
+            <td>$${shoe.quantity?.toFixed(2) ?? "-"}</td>
+            <td>Zapatería ${z.id}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error(`Error cargando datos de zapatería ${z.id}`, err);
       }
-    });
-
-
-    // Historial
-    
-    const searchHistory = [];
-
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
-  tableBody.innerHTML = "";
-
-  const formData = new FormData(form);
-  const queryParams = new URLSearchParams();
-  let logEntry = {};
-
-  for (const [key, value] of formData.entries()) {
-    if (value) {
-      queryParams.append(key, value);
-      logEntry[key] = value;
     }
-  }
-
-  const timestamp = new Date().toLocaleString();
-  searchHistory.push({ timestamp, filtros: { ...logEntry } });
-
-  for (const z of zapaterias) {
-    try {
-      const res = await fetch(`${z.url}?${queryParams.toString()}`);
-      const data = await res.json();
-
-      data.forEach(shoe => {
-        const tr = document.createElement("tr");
-        tr.className = z.className;
-        tr.innerHTML = `
-          <td>${shoe.brand}</td>
-          <td>${shoe.model}</td>
-          <td>${shoe.size ?? "-"}</td>
-          <td>$${shoe.quantity?.toFixed(2) ?? "-"}</td>
-          <td>Zapatería ${z.id}</td>
-        `;
-        tableBody.appendChild(tr);
-      });
-    } catch (err) {
-      console.error(`Error cargando datos de zapatería ${z.id}`, err);
-    }
-  }
-});
-
-
-// descargar el historial
-
-document.getElementById("downloadLog").addEventListener("click", () => {
-  if (searchHistory.length === 0) {
-    alert("No hay búsquedas guardadas aún.");
-    return;
-  }
-
-  let content = "Historial de búsquedas:\n\n";
-  searchHistory.forEach((entry, index) => {
-    content += `Búsqueda #${index + 1} [${entry.timestamp}]:\n`;
-    Object.entries(entry.filtros).forEach(([key, value]) => {
-      content += `  - ${key}: ${value}\n`;
-    });
-    content += "\n";
   });
 
-  const blob = new Blob([content], { type: "text/plain" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "historial_busquedas.txt";
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-});
+  // Botón para descargar historial
+  document.getElementById("downloadLog").addEventListener("click", () => {
+    if (searchHistory.length === 0) {
+      alert("No hay búsquedas guardadas aún.");
+      return;
+    }
 
+    let content = "Historial de búsquedas:\n\n";
+    searchHistory.forEach((entry, index) => {
+      content += `Búsqueda #${index + 1} [${entry.timestamp}]:\n`;
+      Object.entries(entry.filtros).forEach(([key, value]) => {
+        content += `  - ${key}: ${value}\n`;
+      });
+      content += "\n";
+    });
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "historial_busquedas.txt";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
   </script>
 
 </body>
