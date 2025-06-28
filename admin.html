@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin CRUD – Zapatos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2rem;
+    }
+
+    .overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      flex-direction: column;
+      z-index: 1000;
+    }
+
+    input, button {
+      padding: 0.5rem;
+      margin: 0.3rem;
+      font-size: 1rem;
+    }
+
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 2rem;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem;
+    }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    form {
+      margin-bottom: 1.5rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Login -->
+  <div id="authOverlay" class="overlay">
+    <h2>Acceso restringido</h2>
+    <input type="text" id="username" placeholder="Usuario" />
+    <input type="password" id="password" placeholder="Contraseña" />
+    <button onclick="checkLogin()">Entrar</button>
+  </div>
+
+  <!-- Panel CRUD -->
+  <h1>Panel Admin - CRUD Zapatos</h1>
+
+  <!-- Formulario Crear -->
+  <form id="createForm">
+    <input type="text" id="brand" placeholder="Marca" required />
+    <input type="text" id="model" placeholder="Modelo" required />
+    <input type="number" id="size" placeholder="Talla" required />
+    <input type="number" id="quantity" placeholder="Cantidad" required />
+    <button type="submit">Agregar Zapato</button>
+  </form>
+
+  <!-- Formulario Editar -->
+  <form id="editForm" class="hidden">
+    <h3>Editar zapato</h3>
+    <input type="hidden" id="editId" />
+    <input type="text" id="editBrand" placeholder="Marca" required />
+    <input type="text" id="editModel" placeholder="Modelo" required />
+    <input type="number" id="editSize" placeholder="Talla" required />
+    <input type="number" id="editQuantity" placeholder="Cantidad" required />
+    <button type="submit">Guardar cambios</button>
+    <button type="button" onclick="cancelEdit()" style="background: gray;">Cancelar</button>
+  </form>
+
+  <!-- Tabla -->
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Marca</th>
+        <th>Modelo</th>
+        <th>Talla</th>
+        <th>Cantidad</th>
+        <th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody id="shoeTableBody"></tbody>
+  </table>
+
+  <script>
+    // Autenticación
+    function checkLogin() {
+      const user = document.getElementById("username").value;
+      const pass = document.getElementById("password").value;
+      if (user === "admin" && pass === "password1") {
+        document.getElementById("authOverlay").style.display = "none";
+        loadShoes();
+      } else {
+        alert("Credenciales incorrectas");
+      }
+    }
+
+    // Cargar todos (GET)
+    async function loadShoes() {
+      const res = await fetch("http://localhost:8080/api/zapatos/crud");
+      const data = await res.json();
+      const tbody = document.getElementById("shoeTableBody");
+      tbody.innerHTML = "";
+      data.forEach(shoe => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${shoe.id}</td>
+          <td>${shoe.brand}</td>
+          <td>${shoe.model}</td>
+          <td>${shoe.size}</td>
+          <td>${shoe.quantity}</td>
+          <td>
+            <button onclick="startEdit(${shoe.id}, '${shoe.brand}', '${shoe.model}', ${shoe.size}, ${shoe.quantity})">Editar</button>
+            <button onclick="deleteShoe(${shoe.id})" style="background:red;">Eliminar</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // Crear zapato (POST)
+    document.getElementById("createForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const shoe = {
+        brand: document.getElementById("brand").value,
+        model: document.getElementById("model").value,
+        size: parseInt(document.getElementById("size").value),
+        quantity: parseInt(document.getElementById("quantity").value),
+      };
+
+      await fetch("http://localhost:8080/api/zapatos/crud", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(shoe),
+      });
+
+      e.target.reset();
+      loadShoes();
+    });
+
+    // Eliminar zapato (DELETE)
+    async function deleteShoe(id) {
+      if (!confirm(`¿Eliminar zapato ID ${id}?`)) return;
+      await fetch(`http://localhost:8080/api/zapatos/crud/${id}`, { method: "DELETE" });
+      loadShoes();
+    }
+
+    // Iniciar edición
+    function startEdit(id, brand, model, size, quantity) {
+      document.getElementById("editForm").classList.remove("hidden");
+      document.getElementById("editId").value = id;
+      document.getElementById("editBrand").value = brand;
+      document.getElementById("editModel").value = model;
+      document.getElementById("editSize").value = size;
+      document.getElementById("editQuantity").value = quantity;
+      window.scrollTo(0, 0);
+    }
+
+    // Cancelar edición
+    function cancelEdit() {
+      document.getElementById("editForm").classList.add("hidden");
+    }
+
+    // Guardar cambios (PUT)
+    document.getElementById("editForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = document.getElementById("editId").value;
+      const shoe = {
+        brand: document.getElementById("editBrand").value,
+        model: document.getElementById("editModel").value,
+        size: parseInt(document.getElementById("editSize").value),
+        quantity: parseInt(document.getElementById("editQuantity").value),
+      };
+
+      await fetch(`http://localhost:8080/api/zapatos/crud/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(shoe),
+      });
+
+      cancelEdit();
+      loadShoes();
+    });
+  </script>
+</body>
+</html>
